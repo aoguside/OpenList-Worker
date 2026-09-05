@@ -41,6 +41,25 @@ function detectPackageManager(dir) {
   return fs.existsSync(path.join(dir, "pnpm-lock.yaml")) ? "pnpm" : "npm"
 }
 
+/**
+ * pnpm >= 10 才允许 pnpm-workspace.yaml 省略顶层 packages 字段；
+ * pnpm 9 会因 “packages field missing or empty” 直接退出。
+ * 若目标目录用 pnpm 且 workspace 文件缺少顶层 packages，则补上该字段以兼容 pnpm 9。
+ */
+function ensurePnpmWorkspacePkg(dir) {
+  const lock = path.join(dir, "pnpm-lock.yaml")
+  const ws = path.join(dir, "pnpm-workspace.yaml")
+  if (!fs.existsSync(lock)) return // npm 项目，无需处理
+  if (!fs.existsSync(ws)) return // 普通单包项目，无需处理
+  const text = fs.readFileSync(ws, "utf8")
+  if (/^packages\s*:/m.test(text)) return // 已存在顶层 packages 字段
+  fs.appendFileSync(
+    ws,
+    (text.endsWith("\n") ? "" : "\n") + "packages:\n  - \".\"\n",
+  )
+  console.log("  为前端仓库 pnpm-workspace.yaml 补充 packages 字段（兼容 pnpm 9）")
+}
+
 function requireDist(src) {
   if (!fs.existsSync(path.join(src, "index.html"))) {
     throw new Error(`前端产物目录缺少 index.html: ${src}`)
@@ -61,6 +80,7 @@ function buildLocalRepo(repo) {
     throw new Error(`目录不是前端仓库: ${abs}`)
   }
   const pm = detectPackageManager(abs)
+  ensurePnpmWorkspacePkg(abs)
   run(`${pm} install`, { cwd: abs })
   run(`${pm} run build`, { cwd: abs })
   replaceDist(path.join(abs, "dist"))
@@ -101,6 +121,7 @@ function main() {
       `git clone --depth 1 --branch ${OFFICIAL_REPO_REF} ${OFFICIAL_REPO_URL} ${tmp}`,
     )
     const pm = detectPackageManager(tmp)
+    ensurePnpmWorkspacePkg(tmp)
     run(`${pm} install`, { cwd: tmp })
     run(`${pm} run build`, { cwd: tmp })
     replaceDist(path.join(tmp, "dist"))
