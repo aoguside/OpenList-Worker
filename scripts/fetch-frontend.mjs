@@ -81,7 +81,7 @@ function buildLocalRepo(repo) {
   }
   const pm = detectPackageManager(abs)
   ensurePnpmWorkspacePkg(abs)
-  run(`${pm} install`, { cwd: abs })
+  run(`${pm} install --no-frozen-lockfile`, { cwd: abs })
   run(`${pm} run build`, { cwd: abs })
   replaceDist(path.join(abs, "dist"))
 }
@@ -122,7 +122,7 @@ function main() {
     )
     const pm = detectPackageManager(tmp)
     ensurePnpmWorkspacePkg(tmp)
-    run(`${pm} install`, { cwd: tmp })
+    run(`${pm} install --no-frozen-lockfile`, { cwd: tmp })
     run(`${pm} run build`, { cwd: tmp })
     replaceDist(path.join(tmp, "dist"))
   } finally {
